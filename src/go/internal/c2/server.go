@@ -145,7 +145,7 @@ func (s *Server) Start() error {
 		}
 	}
 
-	// Start REST API
+	// Start REST API using modular handlers
 	apiMux := s.setupAPI()
 	apiAddr := fmt.Sprintf("%s:%d", s.cfg.Server.Host, s.cfg.API.Port)
 	apiServer := &http.Server{Addr: apiAddr, Handler: apiMux}
@@ -302,6 +302,62 @@ func (s *Server) Stop() {
 	s.wg.Wait()
 	log.Println("[C2] Server stopped")
 }
+
+// Accessors for modular handlers.
+
+// Quit returns the quit channel for shutdown signaling.
+func (s *Server) Quit() <-chan struct{} { return s.quit }
+
+// TokenManager returns the JWT token manager.
+func (s *Server) TokenManager() *auth.TokenManager { return s.tokenManager }
+
+// RBAC returns the RBAC manager.
+func (s *Server) RBAC() *auth.RBAC { return s.rbac }
+
+// DB returns the database handle.
+func (s *Server) DB() *db.DB { return s.db }
+
+// SIEM returns the SIEM forwarder.
+func (s *Server) SIEM() *siem.SIEMForwarder { return s.siem }
+
+// ListenerCount returns the number of active listeners.
+func (s *Server) ListenerCount() int { return len(s.listeners) }
+
+// ModuleStore returns the module store.
+func (s *Server) ModuleStore() *module.Store { return s.moduleStore }
+
+// Sessions returns the sessions map.
+func (s *Server) Sessions() *sync.Map { return &s.sessions }
+
+// SOCKS5 returns the SOCKS5 manager.
+func (s *Server) SOCKS5() *SOCKS5Manager { return s.socks5 }
+
+// Vault returns the credential vault.
+func (s *Server) Vault() *CredentialVault { return s.vault }
+
+// Files returns the file manager.
+func (s *Server) Files() *FileManager { return s.files }
+
+// PortFwds returns the port forwarding manager.
+func (s *Server) PortFwds() *PortFwdManager { return s.portFwds }
+
+// Tunnels returns the tunnel manager.
+func (s *Server) Tunnels() *TunnelManager { return s.tunnels }
+
+// Reporter returns the report generator.
+func (s *Server) Reporter() *reporting.ReportGenerator { return s.reporter }
+
+// MTLSEnabled returns whether mTLS is enabled.
+func (s *Server) MTLSEnabled() bool { return s.mtlsEnabled }
+
+// CACert returns the CA certificate.
+func (s *Server) CACert() *x509.Certificate { return s.caCert }
+
+// CAKey returns the CA private key.
+func (s *Server) CAKey() *ecdsa.PrivateKey { return s.caKey }
+
+// Config returns the server configuration.
+func (s *Server) Config() *config.Config { return s.cfg }
 
 // CreateTask sends a command to an agent.
 func (s *Server) CreateTask(agentID, command string, timeoutSec uint32) (*proto.TaskResult, error) {

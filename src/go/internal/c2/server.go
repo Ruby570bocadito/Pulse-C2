@@ -1,11 +1,14 @@
 package c2
 
 import (
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"log"
 	"net"
@@ -47,6 +50,11 @@ type Server struct {
 	// Structured logger
 	log *logger.Logger
 
+	// mTLS
+	caCert  *x509.Certificate
+	caKey   *ecdsa.PrivateKey
+	mtlsEnabled bool
+
 	// Multi-transport listeners
 	listeners []net.Listener
 
@@ -85,12 +93,25 @@ func New(cfg *config.Config, database *db.DB) *Server {
 		log.Println("[AUTH] Loaded existing JWT signing key")
 	}
 
+	// Initialize mTLS CA
+	caCert, caKey, err := crypto.GenerateCA()
+	mtlsEnabled := false
+	if err != nil {
+		log.Printf("[MTLS] Warning: failed to generate CA: %v", err)
+	} else {
+		mtlsEnabled = true
+		log.Println("[MTLS] Generated CA certificate for mutual TLS authentication")
+	}
+
 	return &Server{
 		cfg:          cfg,
 		db:           database,
 		tokenManager: auth.NewTokenManager(jwtSecret, 12*time.Hour),
 		rbac:         auth.NewRBAC(),
 		log:          logger.New(logger.INFO, true),
+		caCert:       caCert,
+		caKey:        caKey,
+		mtlsEnabled:  mtlsEnabled,
 		socks5:       NewSOCKS5Manager(),
 		vault:        NewCredentialVault(database),
 		files:        NewFileManager("loot"),
@@ -113,7 +134,14 @@ func (s *Server) Start() error {
 			return fmt.Errorf("generate TLS cert: %w", err)
 		}
 		s.tlsCert = cert
-		s.tlsConfig = transport.NewTLSConfig(cert)
+
+		// Use mTLS if CA is available
+		if s.mtlsEnabled && s.caCert != nil && s.caKey != nil {
+			s.tlsConfig = crypto.NewMTLSServerConfig(cert, s.caCert)
+			log.Printf("[MTLS] Mutual TLS enabled — agents require client certificates")
+		} else {
+			s.tlsConfig = transport.NewTLSConfig(cert)
+		}
 	}
 
 	// Start REST API
@@ -379,6 +407,17 @@ func (s *Server) KillAgent(agentID string) error {
 	sess.SendEnvelope(proto.EnvelopeType_ENVELOPE_TYPE_DISCONNECT, nil)
 	sess.Close()
 	s.db.UpdateSessionState(sess.ID, "killed")
+
+	s.siem.Forward(siem.SIEMEvent{
+		EventType: "agent_killed",
+		Source:    "c2_server",
+		Data: map[string]interface{}{
+			"session_id": sess.ID,
+			"agent_id":   sess.AgentID,
+			"hostname":   sess.Hostname,
+		},
+	})
+
 	return nil
 }
 
@@ -437,6 +476,22 @@ func (s *Server) handleConnection(conn net.Conn, transportName string) {
 		IsAdmin: sess.IsAdmin, State: "active", LastSeen: time.Now(),
 	})
 	s.db.LogAction(0, "session", fmt.Sprintf("%s via %s", sess.Hostname, transportName))
+
+	// Forward session establishment to SIEM
+	s.siem.Forward(siem.SIEMEvent{
+		EventType: "session_established",
+		Source:    "c2_server",
+		Data: map[string]interface{}{
+			"session_id": sess.ID,
+			"agent_id":   sess.AgentID,
+			"hostname":   sess.Hostname,
+			"os":         sess.OS,
+			"arch":       sess.Arch,
+			"username":   sess.Username,
+			"is_admin":   sess.IsAdmin,
+			"transport":  transportName,
+		},
+	})
 
 	s.sessions.Store(sess.ID, sess)
 	sess.SetState(session.StateActive)
@@ -538,6 +593,11 @@ func (s *Server) handleMessageLoop(sess *session.Session) {
 		inner, err := sess.RecvEnvelope()
 		if err != nil {
 			log.Printf("[C2] Session %s read error: %v", sess.ID, err)
+			s.siem.Forward(siem.SIEMEvent{
+				EventType: "session_error",
+				Source:    "c2_server",
+				Data:      map[string]interface{}{"session_id": sess.ID, "error": err.Error()},
+			})
 			sess.Close()
 			return
 		}
@@ -554,13 +614,35 @@ func (s *Server) handleMessageLoop(sess *session.Session) {
 					s.tunnels.HandleTunnelResult(result)
 				}
 				sess.ResolveTask(result.TaskId, result)
+
+				// Forward task result to SIEM
+				s.siem.Forward(siem.SIEMEvent{
+					EventType: "task_result",
+					Source:    "c2_server",
+					Data: map[string]interface{}{
+						"session_id": sess.ID,
+						"task_id":    result.TaskId,
+						"success":    result.Success,
+						"exit_code":  result.ExitCode,
+					},
+				})
 			}
 
 		case proto.EnvelopeType_ENVELOPE_TYPE_RECONNECT:
 			sess.SetState(session.StatePassive)
 			s.db.UpdateSessionState(sess.ID, "passive")
+			s.siem.Forward(siem.SIEMEvent{
+				EventType: "session_passive",
+				Source:    "c2_server",
+				Data:      map[string]interface{}{"session_id": sess.ID},
+			})
 
 		case proto.EnvelopeType_ENVELOPE_TYPE_DISCONNECT:
+			s.siem.Forward(siem.SIEMEvent{
+				EventType: "session_disconnect",
+				Source:    "c2_server",
+				Data:      map[string]interface{}{"session_id": sess.ID},
+			})
 			sess.Close()
 			return
 		}
@@ -757,6 +839,16 @@ func (s *Server) setupAPI() *http.ServeMux {
 		}
 
 		s.db.LogAction(0, "auth_success", fmt.Sprintf("%s logged in", operator.Username))
+
+		s.siem.Forward(siem.SIEMEvent{
+			EventType: "operator_login",
+			Source:    "c2_server",
+			Data: map[string]interface{}{
+				"username": operator.Username,
+				"role":     operator.Role,
+				"remote":   r.RemoteAddr,
+			},
+		})
 
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"token":         token,
@@ -1338,6 +1430,53 @@ func (s *Server) setupAPI() *http.ServeMux {
 			return
 		}
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))))))
+
+	// --- mTLS certificate generation ---
+
+	mux.HandleFunc("/api/mtls/cert", cors(authMiddleware(adminOnly(auditWithLogging(RateLimitMiddleware(rateLimiter)(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Error(w, "method not allowed", 405)
+			return
+		}
+
+		if !s.mtlsEnabled {
+			http.Error(w, `{"error":"mTLS not enabled"}`, 500)
+			return
+		}
+
+		var req struct {
+			AgentID string `json:"agent_id"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		if req.AgentID == "" {
+			req.AgentID = fmt.Sprintf("agent-%x", time.Now().UnixNano())
+		}
+
+		agentCert, err := crypto.GenerateAgentCert(s.caCert, s.caKey, req.AgentID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), 500)
+			return
+		}
+
+		// Export CA cert for agent to verify server
+		caPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: s.caCert.Raw})
+
+		// Export agent cert and key
+		agentCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: agentCert.Certificate[0]})
+		var agentKeyPEM []byte
+		if ecKey, ok := agentCert.PrivateKey.(*ecdsa.PrivateKey); ok {
+			keyBytes, _ := x509.MarshalECPrivateKey(ecKey)
+			agentKeyPEM = pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
+		}
+
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"agent_id":    req.AgentID,
+			"cert_pem":    string(agentCertPEM),
+			"key_pem":     string(agentKeyPEM),
+			"ca_pem":      string(caPEM),
+			"mtls_server": fmt.Sprintf("%s:%d", s.cfg.Server.Host, s.cfg.Server.Port),
+		})
 	}))))))
 
 	// Serve SPA frontend from web/dist/ if it exists

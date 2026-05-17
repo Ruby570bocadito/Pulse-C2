@@ -26,6 +26,7 @@ import (
 	"bty/src/go/internal/auth"
 	"bty/src/go/internal/reporting"
 	"bty/src/go/internal/siem"
+	"bty/src/go/internal/logger"
 	protobuf "google.golang.org/protobuf/proto"
 )
 
@@ -43,6 +44,9 @@ type Server struct {
 	// RBAC
 	rbac *auth.RBAC
 
+	// Structured logger
+	log *logger.Logger
+
 	// Multi-transport listeners
 	listeners []net.Listener
 
@@ -55,6 +59,9 @@ type Server struct {
 	moduleStore *module.Store
 	reporter    *reporting.ReportGenerator
 	siem        *siem.SIEMForwarder
+
+	// API server for graceful shutdown
+	apiServer *http.Server
 
 	quit chan struct{}
 	wg   sync.WaitGroup
@@ -83,6 +90,7 @@ func New(cfg *config.Config, database *db.DB) *Server {
 		db:           database,
 		tokenManager: auth.NewTokenManager(jwtSecret, 12*time.Hour),
 		rbac:         auth.NewRBAC(),
+		log:          logger.New(logger.INFO, true),
 		socks5:       NewSOCKS5Manager(),
 		vault:        NewCredentialVault(database),
 		files:        NewFileManager("loot"),
@@ -91,6 +99,7 @@ func New(cfg *config.Config, database *db.DB) *Server {
 		moduleStore:  module.NewStore("modules", moduleHMACKey),
 		reporter:     reporting.NewReportGenerator("reports"),
 		siem:         siem.NewSIEMForwarder(1024),
+		apiServer:    nil,
 		quit:         make(chan struct{}),
 	}
 }
@@ -111,6 +120,7 @@ func (s *Server) Start() error {
 	apiMux := s.setupAPI()
 	apiAddr := fmt.Sprintf("%s:%d", s.cfg.Server.Host, s.cfg.API.Port)
 	apiServer := &http.Server{Addr: apiAddr, Handler: apiMux}
+	s.apiServer = apiServer
 
 	go func() {
 		log.Printf("[API] Listening on %s", apiAddr)
@@ -236,6 +246,11 @@ func (s *Server) Stop() {
 	// Flush and stop SIEM forwarder
 	if s.siem != nil {
 		s.siem.Stop()
+	}
+
+	// Shutdown API server gracefully
+	if s.apiServer != nil {
+		s.apiServer.Close()
 	}
 
 	// Close all listeners first

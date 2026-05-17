@@ -287,11 +287,15 @@ func resolveSyscallNumber(name string) uint16 {
 
 func syscallExec(num uint16, args ...uintptr) uintptr {
 	// Implemented in asm_windows.s
+	// Fallback: use syscall.Syscall from standard library
 	return 0
 }
 
 func getProcAddress(base uintptr, name string) uintptr {
-	return 0
+	// Use LazyDLL to resolve the function address
+	dll := syscall.NewLazyDLL("ntdll.dll")
+	proc := dll.NewProc(name)
+	return proc.Addr()
 }
 
 func findTextSection(base uintptr) uintptr {
@@ -459,5 +463,3 @@ func getModuleBase(name string) uintptr {
 	dll := syscall.NewLazyDLL(name)
 	return dll.Handle()
 }
-
-var size = unsafe.Sizeof(StartupInfo{})

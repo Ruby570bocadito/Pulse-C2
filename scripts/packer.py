@@ -19,6 +19,7 @@ Usage:
 """
 
 import argparse
+import base64
 import os
 import sys
 import struct
@@ -267,8 +268,6 @@ def pack_binary(input_path, output_path, format="exe"):
     print(f"\n{BOLD}{GREEN}Payload packed successfully!{RESET}")
     print(f"  Output: {output_path}")
     print(f"  Size: {stub_size:,} bytes (original: {len(payload):,} bytes)")
-
-import base64
 
 def main():
     parser = argparse.ArgumentParser(description="BTY Payload Packer")

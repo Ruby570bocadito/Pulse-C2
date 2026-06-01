@@ -11,6 +11,7 @@ import (
 	"bty/src/go/internal/c2"
 	"bty/src/go/internal/config"
 	"bty/src/go/internal/db"
+	"bty/src/go/internal/handlers"
 )
 
 func main() {
@@ -65,6 +66,11 @@ func main() {
 
 	// Create and start server
 	server := c2.New(cfg, database)
+
+	// Wire up REST API handlers (separate package to avoid circular imports)
+	router := handlers.NewRouter(server)
+	server.SetAPIMux(router.Setup())
+
 	if err := server.Start(); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

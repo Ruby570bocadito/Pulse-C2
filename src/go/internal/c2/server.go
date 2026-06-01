@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -22,7 +21,6 @@ import (
 	"bty/src/go/internal/c2/session"
 	"bty/src/go/internal/crypto"
 	"bty/src/go/internal/db"
-	"bty/src/go/internal/handlers"
 	"bty/src/go/internal/proto"
 	"bty/src/go/internal/transport"
 	"bty/src/go/internal/module"
@@ -735,8 +733,12 @@ func (s *Server) cleanupStaleSessions() {
 // --- REST API ---
 
 func (s *Server) setupAPI() *http.ServeMux {
-	router := handlers.NewRouter(s)
-	mux := router.Setup()
+	// Use externally-configured API mux (set via SetAPIMux from cmd/server/main.go)
+	// to avoid circular imports between c2 <-> handlers packages.
+	mux := s.apiMux
+	if mux == nil {
+		mux = http.NewServeMux()
+	}
 
 	// Serve SPA frontend from web/dist/ if it exists
 	distPath := s.findWebDist()

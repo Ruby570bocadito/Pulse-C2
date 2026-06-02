@@ -40,7 +40,7 @@ graph TB
     CLI[CLI Client + Builder]
 
     Client <-->|Encrypted Tunnel - X25519+XChaCha20| Server
-    Client -.->|WebRTC (Pion)| Server
+    Client -.->|WebRTC via Pion| Server
     Server <-->|REST API + WebSocket| UI
     Proxy <-->|SOCKS5 via C2 Relay| Server
     Server --> DB

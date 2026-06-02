@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://capsule-render.vercel.app/api?type=rect&color=7B2D8E&height=100&section=header&text=BTY&fontSize=40&fontColor=ffffff&fontAlign=50&fontAlignY=50&animation=fadeIn" alt="header"/>
+  <img src="https://capsule-render.vercel.app/api?type=rect&color=7B2D8E&height=100&section=header&text=Pulse-C2&fontSize=40&fontColor=ffffff&fontAlign=50&fontAlignY=50&animation=fadeIn" alt="header"/>
 </p>
 
 <p align="center">
@@ -22,13 +22,13 @@
 
 ---
 
-## 🎯 What is BTY?
+## 🎯 What is Pulse-C2?
 
-**BTY** is a modular **Command & Control framework** designed for **red team operations** and **authorized security testing**. It provides encrypted multi-transport communication, cross-platform agents, AV/EDR evasion techniques, and a professional web dashboard — all in a single, self-contained deployment.
+**Pulse-C2** is a modular **Command & Control framework** designed for **red team operations** and **authorized security testing**. It provides encrypted multi-transport communication, cross-platform agents, AV/EDR evasion techniques, and a professional web dashboard — all in a single, self-contained deployment.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                        BTY C2 Server                          │
+│                        Pulse-C2 C2 Server                          │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌─────────────────┐  │
 │  │ TCP/mTLS │ │  HTTP    │ │WebSocket │ │   REST API      │  │
 │  │ :8443    │ │ :8445    │ │ :8446    │ │   :9090         │  │
@@ -82,8 +82,8 @@
 
 ```bash
 # Clone
-git clone https://github.com/Ruby570bocadito/BTY.git
-cd BTY
+git clone https://github.com/Ruby570bocadito/Pulse-C2.git
+cd Pulse-C2
 
 # Build (requires Go 1.26+)
 make build

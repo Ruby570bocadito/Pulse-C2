@@ -113,7 +113,7 @@ cp config.example.yaml my-config.yaml
 cd web && npm run dev
 
 # 3. Deploy agent on target
-./dist/pulse-agent --server https://c2.example.com:8443 --interval 5
+./dist/pulse-agent --server c2.example.com:8443
 ```
 
 ### Docker

